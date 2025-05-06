@@ -1,0 +1,626 @@
+package server
+
+import (
+	"fmt"
+	"reflect"
+	"testing"
+
+	"github.com/omegabytes/ecologits-go/common"
+)
+
+func TestGenericGPU(t *testing.T) {
+	tests := []struct {
+		name string
+		want GPU
+	}{
+		{
+			name: "should return default GPU values",
+			want: GPU{
+				EnergyAlpha:        8.91e-8,
+				EnergyBeta:         1.43e-6,
+				EnergyStdev:        5.19e-7,
+				LatencyAlpha:       8.02e-4,
+				LatencyBeta:        2.23e-2,
+				LatencyStdev:       7.00e-6,
+				AvailMemoryGB:      80,
+				EmbodiedImpactADPe: 5.1e-3,
+				EmbodiedImpactGWP:  143,
+				EmbodiedImpactPE:   1828,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GenericGPU(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GenericGPU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenericServerInfra(t *testing.T) {
+	tests := []struct {
+		name    string
+		want    *ServerInfra
+		wantErr bool
+	}{
+		{
+			name: "should return default ServerInfra values",
+			want: &ServerInfra{
+				AvailableGpuCount:  8,
+				PowerConsumptionKW: 1,
+				EmbodiedImpactADPe: 0.24,
+				EmbodiedImpactGWP:  3000,
+				EmbodiedImpactPE:   38000,
+				HardwareLifespan:   5 * 365 * 24 * 60 * 60,
+				Gpu: GPU{
+					EnergyAlpha:        8.91e-8,
+					EnergyBeta:         1.43e-6,
+					EnergyStdev:        5.19e-7,
+					LatencyAlpha:       8.02e-4,
+					LatencyBeta:        2.23e-2,
+					LatencyStdev:       7.00e-6,
+					AvailMemoryGB:      80,
+					EmbodiedImpactADPe: 5.1e-3,
+					EmbodiedImpactGWP:  143,
+					EmbodiedImpactPE:   1828,
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GenericServerInfra()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GenericServerInfra() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GenericServerInfra() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestServerInfra_GenerationLatency(t *testing.T) {
+	type fields struct {
+		AvailableGpuCount  int
+		PowerConsumptionKW float64
+		EmbodiedImpactADPe float64
+		EmbodiedImpactGWP  float64
+		EmbodiedImpactPE   float64
+		HardwareLifespan   int64
+		Gpu                GPU
+	}
+	type args struct {
+		modelActiveParameterCount float64
+		outputTokenCount          float64
+		requestLatency            float64
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		args          args
+		want          common.RangeValue
+		expectedError error
+	}{
+		{
+			// gpuLatPerTokenMean: 8.02e-4 * 10 + 2.23e-2 = 0.03032
+			// gpuLatMin: 100 * (0.03032 - 1.96 * 7.00e-6) = 3.030628
+			// gpuLatMax: 100 * (0.03032 + 1.96 * 7.00e-6) = 3.033372
+			name: "should calculate generation latency successfully",
+			fields: fields{
+				AvailableGpuCount:  4,
+				PowerConsumptionKW: 1.5,
+				Gpu: GPU{
+					LatencyAlpha: 8.02e-4,
+					LatencyBeta:  2.23e-2,
+					LatencyStdev: 7.00e-6,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          100,
+				requestLatency:            5,
+			},
+			want: common.RangeValue{
+				Min: 3.030628,
+				Max: 3.033372,
+			},
+			expectedError: nil,
+		},
+		{
+			// gpuLatPerTokenMean: 8.02e-4 * 10 + 2.23e-2 = 0.03032
+			// gpuLatMin: 100 * (0.03032 - 1.96 * 7.00e-6) = 3.030628
+			// gpuLatMax: 100 * (0.03032 + 1.96 * 7.00e-6) = 3.033372
+			name: "should return requestLatency when calculated gpuLatencyInterval is < requestLatency",
+			fields: fields{
+				AvailableGpuCount:  4,
+				PowerConsumptionKW: 1.5,
+				Gpu: GPU{
+					LatencyAlpha: 8.02e-4,
+					LatencyBeta:  2.23e-2,
+					LatencyStdev: 7.00e-6,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          100,
+				requestLatency:            1,
+			},
+			want: common.RangeValue{
+				Min: 1,
+				Max: 1,
+			},
+			expectedError: nil,
+		},
+		{
+			name: "should return error when modelActiveParameterCount is 0",
+			fields: fields{
+				Gpu: GPU{
+					LatencyAlpha: 8.02e-4,
+					LatencyBeta:  2.23e-2,
+					LatencyStdev: 7.00e-6,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 0,
+				outputTokenCount:          100,
+				requestLatency:            1,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("modelActiveParameterCount must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when outputTokenCount is 0",
+			fields: fields{
+				Gpu: GPU{
+					LatencyAlpha: 8.02e-4,
+					LatencyBeta:  2.23e-2,
+					LatencyStdev: 7.00e-6,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          0,
+				requestLatency:            1,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("outputTokenCount must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when requestLatency is 0",
+			fields: fields{
+				Gpu: GPU{
+					LatencyAlpha: 8.02e-4,
+					LatencyBeta:  2.23e-2,
+					LatencyStdev: 7.00e-6,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          100,
+				requestLatency:            0,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("requestLatency must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when GPU latency parameters are invalid",
+			fields: fields{
+				Gpu: GPU{
+					LatencyAlpha: 0,
+					LatencyBeta:  0,
+					LatencyStdev: 0,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          100,
+				requestLatency:            1,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("GPU latency parameters must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when AvailableGpuCount is 0",
+			fields: fields{
+				AvailableGpuCount: 0,
+				Gpu: GPU{
+					LatencyAlpha: 8.02e-4,
+					LatencyBeta:  2.23e-2,
+					LatencyStdev: 7.00e-6,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          100,
+				requestLatency:            1,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("AvailableGpuCount must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when PowerConsumptionKW is 0",
+			fields: fields{
+				AvailableGpuCount:  4,
+				PowerConsumptionKW: 0,
+				Gpu: GPU{
+					LatencyAlpha: 8.02e-4,
+					LatencyBeta:  2.23e-2,
+					LatencyStdev: 7.00e-6,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          100,
+				requestLatency:            1,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("PowerConsumptionKW must be greater than 0")
+			}(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &ServerInfra{
+				AvailableGpuCount:  tt.fields.AvailableGpuCount,
+				PowerConsumptionKW: tt.fields.PowerConsumptionKW,
+				HardwareLifespan:   tt.fields.HardwareLifespan,
+				Gpu:                tt.fields.Gpu,
+			}
+			got, err := s.GenerationLatency(
+				tt.args.modelActiveParameterCount, tt.args.outputTokenCount, tt.args.requestLatency)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GenerationLatency() got = %v, want %v", got, tt.want)
+			}
+			if err != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("GenerationLatency() error = %v, wantErr %v", err, tt.expectedError)
+			}
+		})
+	}
+}
+
+func TestServerInfra_GpuEnergy(t *testing.T) {
+	type fields struct {
+		Gpu GPU
+	}
+	type args struct {
+		modelActiveParameterCount float64
+		outputTokenCount          float64
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		args          args
+		want          common.RangeValue
+		expectedError error
+	}{
+		{
+			// perTokenMean: 8.91e-8 * 10 + 1.43e-6 = 0.000002321
+			// gpuEnergyMin: 100 * (0.000002321 - 1.96 * 5.19e-7) = 0.00013037599999999997
+			// gpuEnergyMax: 100 * (0.000002321 + 1.96 * 5.19e-7) = 0.000333824
+			name: "should calculate GPU energy successfully",
+			fields: fields{
+				Gpu: GPU{
+					EnergyAlpha: 8.91e-8,
+					EnergyBeta:  1.43e-6,
+					EnergyStdev: 5.19e-7,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          100,
+			},
+			want: common.RangeValue{
+				Min: 0.00013037599999999997,
+				Max: 0.000333824,
+			},
+			expectedError: nil,
+		},
+		{
+			// perTokenMean: 8.91e-8 * 1 + 1.43e-8 = 0.0000001034
+			// gpuEnergyMin: 100 * (0.0000001034 - 1.96 * 5.19e-7) = -0.000091384
+			// gpuEnergyMax: 100 * (0.0000001034 + 1.96 * 5.19e-7) = 0.00011206399999999999
+			name: "should set min GPU to 0 when min calculation result is < 0",
+			fields: fields{
+				Gpu: GPU{
+					EnergyAlpha: 8.91e-8,
+					EnergyBeta:  1.43e-8,
+					EnergyStdev: 5.19e-7,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 1,
+				outputTokenCount:          100,
+			},
+			want: common.RangeValue{
+				Min: 0,
+				Max: 0.00011206399999999999,
+			},
+			expectedError: nil,
+		},
+		{
+			name: "should return error when modelActiveParameterCount is 0",
+			fields: fields{
+				Gpu: GPU{
+					EnergyAlpha: 8.91e-8,
+					EnergyBeta:  1.43e-6,
+					EnergyStdev: 5.19e-7,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 0,
+				outputTokenCount:          100,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("modelActiveParameterCount must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when outputTokenCount is 0",
+			fields: fields{
+				Gpu: GPU{
+					EnergyAlpha: 8.91e-8,
+					EnergyBeta:  1.43e-6,
+					EnergyStdev: 5.19e-7,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          0,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("outputTokenCount must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when GPU energy parameters are invalid",
+			fields: fields{
+				Gpu: GPU{
+					EnergyAlpha: 0,
+					EnergyBeta:  0,
+					EnergyStdev: 0,
+				},
+			},
+			args: args{
+				modelActiveParameterCount: 10,
+				outputTokenCount:          100,
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("GPU energy parameters must be greater than 0")
+			}(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &ServerInfra{
+				Gpu: tt.fields.Gpu,
+			}
+			got, err := s.GpuEnergy(tt.args.modelActiveParameterCount, tt.args.outputTokenCount)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GpuEnergy() got = %v, want %v", got, tt.want)
+			}
+			if err != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("GpuEnergy() error = %v, wantErr %v", err, tt.expectedError)
+			}
+		})
+	}
+}
+
+func TestServerInfra_GpuRequiredCount(t *testing.T) {
+	type fields struct {
+		AvailableGpuCount int
+		Gpu               GPU
+	}
+	type args struct {
+		modelRequiredMemory float64
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		args          args
+		want          int
+		expectedError error
+	}{
+		{
+			name: "should return number of GPUs required to load model when model memory and available GPU memory are provided",
+			fields: fields{
+				AvailableGpuCount: 4,
+				Gpu: GPU{
+					AvailMemoryGB: 80,
+				},
+			},
+			args: args{
+				modelRequiredMemory: 80,
+			},
+			want:          1,
+			expectedError: nil,
+		},
+		{
+			name: "should return error when model memory is 0",
+			fields: fields{
+				AvailableGpuCount: 4,
+				Gpu: GPU{
+					AvailMemoryGB: 80,
+				},
+			},
+			args: args{
+				modelRequiredMemory: 0,
+			},
+			want: 0,
+			expectedError: func() error {
+				return fmt.Errorf("model required memory must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when server gpu available memory is 0",
+			fields: fields{
+				AvailableGpuCount: 4,
+				Gpu: GPU{
+					AvailMemoryGB: 0,
+				},
+			},
+			args: args{
+				modelRequiredMemory: 80,
+			},
+			want: 0,
+			expectedError: func() error {
+				return fmt.Errorf("available GPU count must be greater than 0")
+			}(),
+		},
+		{
+			name: "should round up the returned gpu count",
+			fields: fields{
+				AvailableGpuCount: 4,
+				Gpu: GPU{
+					AvailMemoryGB: 30,
+				},
+			},
+			args: args{
+				modelRequiredMemory: 80,
+			},
+			want:          3,
+			expectedError: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &ServerInfra{
+				AvailableGpuCount: tt.fields.AvailableGpuCount,
+				Gpu:               tt.fields.Gpu,
+			}
+			got, err := s.GpuRequiredCount(tt.args.modelRequiredMemory)
+			if got != tt.want {
+				t.Errorf("GpuRequiredCount() got = %v, want %v", got, tt.want)
+			}
+			if err != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("GpuRequiredCount() error = %v, wantErr %v", err, tt.expectedError)
+			}
+		})
+	}
+}
+
+func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
+	type fields struct {
+		AvailableGpuCount  int
+		PowerConsumptionKW float64
+		Gpu                GPU
+	}
+	type args struct {
+		tokenGenLatencySeconds float64
+		gpuRequiredCount       int
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		args          args
+		want          float64
+		expectedError error
+	}{
+		{
+			name: "should calculate energy baseline successfully",
+			fields: fields{
+				AvailableGpuCount:  4,
+				PowerConsumptionKW: 1.5,
+			},
+			args: args{
+				tokenGenLatencySeconds: 10,
+				gpuRequiredCount:       2,
+			},
+			want:          0.0020833333333333333,
+			expectedError: nil,
+		},
+		{
+			name: "should return error when tokenGenLatencySeconds is 0",
+			fields: fields{
+				AvailableGpuCount:  4,
+				PowerConsumptionKW: 1.5,
+			},
+			args: args{
+				tokenGenLatencySeconds: 0,
+				gpuRequiredCount:       2,
+			},
+			want: 0,
+			expectedError: func() error {
+				return fmt.Errorf("token generation latency must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when gpuRequiredCount is 0",
+			fields: fields{
+				AvailableGpuCount:  4,
+				PowerConsumptionKW: 1.5,
+			},
+			args: args{
+				tokenGenLatencySeconds: 10,
+				gpuRequiredCount:       0,
+			},
+			want: 0,
+			expectedError: func() error {
+				return fmt.Errorf("gpuRequiredCount must be between 1 and the number of available GPUs")
+			}(),
+		},
+		{
+			name: "should return error when gpuRequiredCount exceeds available GPUs",
+			fields: fields{
+				AvailableGpuCount:  4,
+				PowerConsumptionKW: 1.5,
+			},
+			args: args{
+				tokenGenLatencySeconds: 10,
+				gpuRequiredCount:       5,
+			},
+			want: 0,
+			expectedError: func() error {
+				return fmt.Errorf("gpuRequiredCount must be between 1 and the number of available GPUs")
+			}(),
+		},
+		{
+			name: "should return error when PowerConsumptionKW is 0",
+			fields: fields{
+				AvailableGpuCount:  4,
+				PowerConsumptionKW: 0,
+			},
+			args: args{
+				tokenGenLatencySeconds: 10,
+				gpuRequiredCount:       2,
+			},
+			want: 0,
+			expectedError: func() error {
+				return fmt.Errorf("power consumption must be greater than 0")
+			}(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &ServerInfra{
+				AvailableGpuCount:  tt.fields.AvailableGpuCount,
+				PowerConsumptionKW: tt.fields.PowerConsumptionKW,
+				Gpu:                tt.fields.Gpu,
+			}
+			got, err := s.ServerEnergyBaseline(tt.args.tokenGenLatencySeconds, tt.args.gpuRequiredCount)
+			if got != tt.want {
+				t.Errorf("ServerEnergyBaseline() = %v, want %v", got, tt.want)
+			}
+			if err != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("ServerEnergyBaseline() error = %v, wantErr %v", err, tt.expectedError)
+			}
+		})
+	}
+}
