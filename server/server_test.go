@@ -624,3 +624,132 @@ func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 		})
 	}
 }
+
+func TestServerInfra_RequestEnergy(t *testing.T) {
+	type fields struct {
+		AvailableGpuCount  int
+		PowerConsumptionKW float64
+		EmbodiedImpactADPe float64
+		EmbodiedImpactGWP  float64
+		EmbodiedImpactPE   float64
+		HardwareLifespan   int64
+		Gpu                GPU
+		DatacenterPue      float64
+	}
+	type args struct {
+		serverEnergy     float64
+		gpuRequiredCount int
+		gpuEnergy        common.RangeValue
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		args          args
+		want          common.RangeValue
+		expectedError error
+	}{
+		{
+			// min: 1.2 * (1.5 + 2 * 0.1) = 2.04
+			// max: 1.2 * (1.5 + 2 * 0.2) = 2.28
+			name: "should calculate request energy successfully",
+			fields: fields{
+				AvailableGpuCount: 4,
+				DatacenterPue:     1.2,
+			},
+			args: args{
+				serverEnergy:     1.5,
+				gpuRequiredCount: 2,
+				gpuEnergy:        common.RangeValue{Min: 0.1, Max: 0.2},
+			},
+			want: common.RangeValue{
+				Min: 2.04,
+				Max: 2.28,
+			},
+			expectedError: nil,
+		},
+		{
+			name: "should return error when serverEnergy is 0",
+			fields: fields{
+				DatacenterPue: 1.2,
+			},
+			args: args{
+				serverEnergy:     0,
+				gpuRequiredCount: 2,
+				gpuEnergy:        common.RangeValue{Min: 0.1, Max: 0.2},
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("serverEnergy must be greater than 0")
+			}(),
+		},
+		{
+			name: "should return error when gpuRequiredCount is 0",
+			fields: fields{
+				AvailableGpuCount: 4,
+				DatacenterPue:     1.2,
+			},
+			args: args{
+				serverEnergy:     1.5,
+				gpuRequiredCount: 0,
+				gpuEnergy:        common.RangeValue{Min: 0.1, Max: 0.2},
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("gpuRequiredCount must be between 1 and the number of available GPUs")
+			}(),
+		},
+		{
+			name: "should return error when gpuRequiredCount exceeds available GPUs",
+			fields: fields{
+				AvailableGpuCount: 4,
+				DatacenterPue:     1.2,
+			},
+			args: args{
+				serverEnergy:     1.5,
+				gpuRequiredCount: 5,
+				gpuEnergy:        common.RangeValue{Min: 0.1, Max: 0.2},
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("gpuRequiredCount must be between 1 and the number of available GPUs")
+			}(),
+		},
+		{
+			name: "should return error when gpuEnergy.Min is negative",
+			fields: fields{
+				AvailableGpuCount: 4,
+				DatacenterPue:     1.2,
+			},
+			args: args{
+				serverEnergy:     1.5,
+				gpuRequiredCount: 2,
+				gpuEnergy:        common.RangeValue{Min: -0.1, Max: 0.2},
+			},
+			want: common.RangeValue{},
+			expectedError: func() error {
+				return fmt.Errorf("gpuEnergy values must be non-negative")
+			}(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &ServerInfra{
+				AvailableGpuCount:  tt.fields.AvailableGpuCount,
+				PowerConsumptionKW: tt.fields.PowerConsumptionKW,
+				EmbodiedImpactADPe: tt.fields.EmbodiedImpactADPe,
+				EmbodiedImpactGWP:  tt.fields.EmbodiedImpactGWP,
+				EmbodiedImpactPE:   tt.fields.EmbodiedImpactPE,
+				HardwareLifespan:   tt.fields.HardwareLifespan,
+				Gpu:                tt.fields.Gpu,
+				DatacenterPue:      tt.fields.DatacenterPue,
+			}
+			got, err := s.RequestEnergy(tt.args.serverEnergy, tt.args.gpuRequiredCount, tt.args.gpuEnergy)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RequestEnergy() = %v, want %v", got, tt.want)
+			}
+			if err != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("RequestEnergy() error = %v, wantErr %v", err, tt.expectedError)
+			}
+		})
+	}
+}

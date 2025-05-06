@@ -18,6 +18,7 @@ type ServerInfra struct {
 	EmbodiedImpactPE   float64
 	HardwareLifespan   int64
 	Gpu                GPU
+	DatacenterPue      float64
 }
 
 // GPU represents a GPU contained in a server that is used train LLMs or execute user requests.
@@ -45,6 +46,7 @@ func GenericServerInfra() (*ServerInfra, error) {
 		serverEmbodiedImpactAdpe = 0.24
 		serverEmbodiedImpactPe   = 38000
 		hardwareLifespan         = 5 * 365 * 24 * 60 * 60
+		datacenterPue            = 1.2
 	)
 
 	return &ServerInfra{
@@ -55,6 +57,7 @@ func GenericServerInfra() (*ServerInfra, error) {
 		EmbodiedImpactPE:   serverEmbodiedImpactPe,
 		HardwareLifespan:   hardwareLifespan,
 		Gpu:                GenericGPU(),
+		DatacenterPue:      datacenterPue,
 	}, nil
 }
 
@@ -191,5 +194,32 @@ func (s *ServerInfra) GenerationLatency(
 	return common.RangeValue{
 		Min: requestLatency,
 		Max: requestLatency,
+	}, nil
+}
+
+// RequestEnergy returns the energy consumption of the request in kWh.
+//
+// Args:
+//   - datacenterPUE: PUE of the datacenter.
+//   - serverEnergy: Energy consumption of the server in kWh.
+//   - gpuRequiredCount: Number of required GPUs to load the model.
+//   - gpuEnergy: Energy consumption of a single GPU in kWh.
+func (s *ServerInfra) RequestEnergy(
+	serverEnergy float64,
+	gpuRequiredCount int,
+	gpuEnergy common.RangeValue,
+) (common.RangeValue, error) {
+	if serverEnergy <= 0 {
+		return common.RangeValue{}, fmt.Errorf("serverEnergy must be greater than 0")
+	}
+	if gpuRequiredCount <= 0 || gpuRequiredCount > s.AvailableGpuCount {
+		return common.RangeValue{}, fmt.Errorf("gpuRequiredCount must be between 1 and the number of available GPUs")
+	}
+	if gpuEnergy.Min < 0 || gpuEnergy.Max < 0 {
+		return common.RangeValue{}, fmt.Errorf("gpuEnergy values must be non-negative")
+	}
+	return common.RangeValue{
+		Min: s.DatacenterPue * (serverEnergy + float64(gpuRequiredCount)*gpuEnergy.Min),
+		Max: s.DatacenterPue * (serverEnergy + float64(gpuRequiredCount)*gpuEnergy.Max),
 	}, nil
 }
