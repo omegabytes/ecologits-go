@@ -1,4 +1,5 @@
-🌱 **EcoLogits-Go** is the Go implementation of the open-source **EcoLogits** project, which tracks the energy consumption and environmental impacts of using generative AI models through APIs.  
+🌱 **EcoLogits-Go** is tracks the energy consumption and environmental impacts of generative AI models through APIs.  
+Inspired by the original **[EcoLogits](https://github.com/genai-impact/ecologits/tree/2efe102922e6d6b092b45f00d11c6b4355a9d53a)** project, this implementation is independent and not affiliated with the original initiative.  
 [![Go Reference](https://pkg.go.dev/badge/github.com/omegabytes/ecologits-go.svg)](https://pkg.go.dev/github.com/omegabytes/ecologits-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/omegabytes/ecologits-go)](https://goreportcard.com/report/github.com/omegabytes/ecologits-go)
 ## Installation
@@ -8,13 +9,14 @@ go get github.com/omegabytes/ecologits-go
 ```
 
 ### Tooling
-Install `golangci-lint` using the [recommended installation method](https://golangci-lint.run/welcome/install/#ci-installation) for your platform.
+* Install `golangci-lint` using the [recommended installation method](https://golangci-lint.run/welcome/install/#ci-installation) for your platform.
 
 ## Usage
 
-```go
-// todo
-```
+# Contributing
+* When in doubt, adhere to the [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md#uber-go-style-guide)
+* Imports should conform to `goimports` and `golangci-lint` rules.
+* Commit messages should confirm to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.
 
 ## License
 
