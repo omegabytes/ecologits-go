@@ -1,6 +1,6 @@
 🌱 **EcoLogits-Go** is tracks the energy consumption and environmental impacts of generative AI models through APIs.  
 Inspired by the original **[EcoLogits](https://github.com/genai-impact/ecologits/tree/2efe102922e6d6b092b45f00d11c6b4355a9d53a)** project, this implementation is independent and not affiliated with the original initiative.  
-[![Go Reference](https://pkg.go.dev/badge/github.com/omegabytes/ecologits-go.svg)](https://pkg.go.dev/github.com/omegabytes/ecologits-go)
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/omegabytes/ecologits-go)](https://goreportcard.com/report/github.com/omegabytes/ecologits-go)
 ## Installation
 
