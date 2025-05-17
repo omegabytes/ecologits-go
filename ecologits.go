@@ -12,8 +12,8 @@ type RangeValue struct {
 	Max float64
 }
 
-func NewLLM(modelName, provider string) (*aimodel.AIModel, error) {
-	return aimodel.NewAIModel(modelName, provider)
+func NewLLM(modelName string) (*aimodel.AIModel, error) {
+	return aimodel.NewAIModel(modelName)
 }
 
 func NewGPUServer() (*gpuserver.GPUServer, error) {

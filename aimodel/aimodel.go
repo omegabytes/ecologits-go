@@ -83,16 +83,10 @@ type Parameters struct {
 	Total common.RangeValue `json:"total"`
 }
 
-// NewAIModel creates a new AIModel instance based on the provided name and provider.
-func NewAIModel(
-	name string,
-	provider string,
-) (*AIModel, error) {
-	switch {
-	case name == "":
+// NewAIModel creates a new AIModel instance based on the provided name.
+func NewAIModel(name string) (*AIModel, error) {
+	if name == "" {
 		return nil, errors.New("name cannot be empty")
-	case provider == "":
-		return nil, errors.New("provider cannot be empty")
 	}
 
 	source := "aimodel/data/aimodels.json"

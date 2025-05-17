@@ -38,7 +38,7 @@ func main() {
 		return
 	}
 
-	llm, err := ecogo.NewLLM(openai.ChatModelGPT4, "openai")
+	llm, err := ecogo.NewLLM(resp.Model)
 	if err != nil {
 		slog.Error("failed to create new llm model", "error", err)
 		return
