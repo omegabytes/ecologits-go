@@ -35,7 +35,7 @@ type Provider string
 
 const (
 	Anthropic      Provider = "anthropic"
-	Mistralai      Provider = "mistralai"
+	MistralAI      Provider = "mistralai"
 	OpenAI         Provider = "openai"
 	HuggingfaceHub Provider = "huggingface_hub"
 	Cohere         Provider = "cohere"
@@ -50,9 +50,9 @@ type Warning struct {
 
 // Alias is a model alias, used to map different names to the same model.
 type Alias struct {
-	Provider string `json:"provider"`
-	Name     string `json:"name"`
-	Alias    string `json:"alias"`
+	ProviderName string `json:"provider"`
+	ModelName    string `json:"name"`
+	ModelAlias   string `json:"alias"`
 }
 
 // ModelData is the top-level structure for the model used in the data file.
@@ -95,11 +95,7 @@ func NewAIModel(
 		return nil, errors.New("provider cannot be empty")
 	}
 
-	// todo: fetch model data from API
-	// source := "https://raw.githubusercontent.com/genai-impact/ecologits/main/data/models.json"
 	source := "aimodel/data/aimodels.json"
-
-	// todo: provider name is unused. Can a model be used with multiple providers?
 	models, err := FetchAIModels(source)
 	if err != nil {
 		slog.Error("failed to fetch AI models", "err", err)
@@ -160,9 +156,9 @@ func FetchAIModels(source string) (*ModelData, error) {
 	for _, alias := range aliases {
 		models.Aliases = append(
 			models.Aliases, Alias{
-				Provider: string(alias.GetStringBytes("provider")),
-				Name:     string(alias.GetStringBytes("name")),
-				Alias:    string(alias.GetStringBytes("alias")),
+				ProviderName: string(alias.GetStringBytes("provider")),
+				ModelName:    string(alias.GetStringBytes("name")),
+				ModelAlias:   string(alias.GetStringBytes("alias")),
 			},
 		)
 	}
@@ -281,8 +277,6 @@ func parseRangeValue(value *fastjson.Value) (common.RangeValue, error) {
 }
 
 func CreateModelsMap(models *ModelData) (map[string]AIModel, error) {
-	// todo: review this you were tired
-	// todo: refactor aliases
 	modelsMap := make(map[string]AIModel)
 	for _, model := range models.Models {
 		modelsMap[model.name] = model
