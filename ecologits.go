@@ -2,17 +2,22 @@ package ecologits_go
 
 import (
 	"github.com/omegabytes/ecologits-go/aimodel"
+	"github.com/omegabytes/ecologits-go/gpuserver"
 	"github.com/omegabytes/ecologits-go/impact"
 	"github.com/omegabytes/ecologits-go/request"
-	"github.com/omegabytes/ecologits-go/server"
 )
+
+type RangeValue struct {
+	Min float64
+	Max float64
+}
 
 func NewLLM(modelName, provider string) (*aimodel.AIModel, error) {
 	return aimodel.NewAIModel(modelName, provider)
 }
 
-func NewServer() (*server.ServerInfra, error) {
-	return server.GenericServerInfra()
+func NewGPUServer() (*gpuserver.GPUServer, error) {
+	return gpuserver.GenericGPUServer()
 }
 
 func NewRequest(outputTokenCount int64, latency float64, geo string) (request.Request, error) {
@@ -22,7 +27,7 @@ func NewRequest(outputTokenCount int64, latency float64, geo string) (request.Re
 func ComputeImpacts(
 	aiModel *aimodel.AIModel,
 	request request.Request,
-	server *server.ServerInfra,
+	server *gpuserver.GPUServer,
 ) (impact.Impacts, error) {
 	return impact.ComputeImpacts(aiModel, server, request)
 }

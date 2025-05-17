@@ -45,7 +45,7 @@ func main() {
 	}
 	slog.Info("successfully created llm", "llm", llm)
 
-	server, err := ecogo.NewServer()
+	server, err := ecogo.NewGPUServer()
 	if err != nil {
 		slog.Error("failed to create new server model", "error", err)
 		return

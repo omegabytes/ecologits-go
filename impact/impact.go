@@ -8,8 +8,8 @@ import (
 
 	"github.com/omegabytes/ecologits-go/aimodel"
 	"github.com/omegabytes/ecologits-go/common"
+	"github.com/omegabytes/ecologits-go/gpuserver"
 	"github.com/omegabytes/ecologits-go/request"
-	"github.com/omegabytes/ecologits-go/server"
 )
 
 type Usage struct {
@@ -34,7 +34,7 @@ type Total struct {
 type ImpactIface interface {
 	CalculateRequestUsage(requestEnergy common.RangeValue, electricityMix float64)
 	CalculateRequestEmbodied(hardwareLifespan float64, generationLatency common.RangeValue)
-	CalculateServerGpuEmbodied(server *server.ServerInfra, gpuRequiredCount int)
+	CalculateServerGPUEmbodied(server *gpuserver.GPUServer, gpuRequiredCount int)
 	CalculateTotal()
 }
 
@@ -46,11 +46,11 @@ type Impacts struct {
 }
 
 // ComputeImpacts computes the environmental and energy impact of the generative AI model.
-func ComputeImpacts(aiModel *aimodel.AIModel, server *server.ServerInfra, req request.Request) (Impacts, error) {
+func ComputeImpacts(aiModel *aimodel.AIModel, server *gpuserver.GPUServer, req request.Request) (Impacts, error) {
 	modelRequiredMemory := aiModel.ModelRequiredMemory()
 	electricityMix := req.GetElectricityMix()
 
-	gpuRequiredCount, err := server.GpuRequiredCount(modelRequiredMemory)
+	gpuRequiredCount, err := server.GPURequiredCount(modelRequiredMemory)
 	if err != nil {
 		return Impacts{}, fmt.Errorf("failed to get GPU required count: %w", err)
 	}
@@ -61,7 +61,7 @@ func ComputeImpacts(aiModel *aimodel.AIModel, server *server.ServerInfra, req re
 		return Impacts{}, fmt.Errorf("failed to get generation latency: %w", err)
 	}
 
-	gpuEnergyKWH, err := server.GpuEnergyKWH(paramsActiveMax, req.OutputTokenCount)
+	gpuEnergyKWH, err := server.GPUEnergyKWH(paramsActiveMax, req.OutputTokenCount)
 	if err != nil {
 		return Impacts{}, fmt.Errorf("failed to get GPU energy: %w", err)
 	}
@@ -78,19 +78,19 @@ func ComputeImpacts(aiModel *aimodel.AIModel, server *server.ServerInfra, req re
 
 	adpeImpact := &ADPe{}
 	adpeImpact.CalculateRequestUsage(requestEnergy, electricityMix.ADPe)
-	adpeImpact.CalculateServerGpuEmbodied(server, gpuRequiredCount)
+	adpeImpact.CalculateServerGPUEmbodied(server, gpuRequiredCount)
 	adpeImpact.CalculateRequestEmbodied(float64(server.HardwareLifespan), generationLatency)
 	adpeImpact.CalculateTotal()
 
 	gwpImpact := &GWP{}
 	gwpImpact.CalculateRequestUsage(requestEnergy, electricityMix.GWP)
-	gwpImpact.CalculateServerGpuEmbodied(server, gpuRequiredCount)
+	gwpImpact.CalculateServerGPUEmbodied(server, gpuRequiredCount)
 	gwpImpact.CalculateRequestEmbodied(float64(server.HardwareLifespan), generationLatency)
 	gwpImpact.CalculateTotal()
 
 	peImpact := &PE{}
 	peImpact.CalculateRequestUsage(requestEnergy, electricityMix.PE)
-	peImpact.CalculateServerGpuEmbodied(server, gpuRequiredCount)
+	peImpact.CalculateServerGPUEmbodied(server, gpuRequiredCount)
 	peImpact.CalculateRequestEmbodied(float64(server.HardwareLifespan), generationLatency)
 	peImpact.CalculateTotal()
 
@@ -110,17 +110,17 @@ func requestUsage(requestEnergy common.RangeValue, electricityMix float64) commo
 }
 
 func requestEmbodied(
-	serverGpuEmbodiedImpact float64,
+	serverGPUEmbodiedImpact float64,
 	hardwareLifespan float64,
 	generationLatency common.RangeValue,
 ) common.RangeValue {
 	return common.RangeValue{
-		Min: (generationLatency.Min / hardwareLifespan) * serverGpuEmbodiedImpact,
-		Max: (generationLatency.Max / hardwareLifespan) * serverGpuEmbodiedImpact,
+		Min: (generationLatency.Min / hardwareLifespan) * serverGPUEmbodiedImpact,
+		Max: (generationLatency.Max / hardwareLifespan) * serverGPUEmbodiedImpact,
 	}
 }
 
-func serverGpuEmbodied(
+func serverGPUEmbodied(
 	serverEmbodiedImpact float64,
 	gpuCount float64,
 	gpuEmbodiedImpact float64,

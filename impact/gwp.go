@@ -2,7 +2,7 @@ package impact
 
 import (
 	"github.com/omegabytes/ecologits-go/common"
-	"github.com/omegabytes/ecologits-go/server"
+	"github.com/omegabytes/ecologits-go/gpuserver"
 )
 
 var _ ImpactIface = &GWP{}
@@ -11,7 +11,7 @@ var _ ImpactIface = &GWP{}
 type GWP struct {
 	EmbodiedImpact          common.RangeValue
 	RequestImpact           common.RangeValue
-	ServerGpuEmbodiedImpact float64
+	ServerGPUEmbodiedImpact float64
 	TotalImpact             common.RangeValue
 }
 
@@ -23,13 +23,14 @@ func (g *GWP) CalculateRequestUsage(requestEnergyKWH common.RangeValue, elecImpa
 
 // CalculateRequestEmbodied computes the GWP embodied impact of the request in kgCO2eq.
 func (g *GWP) CalculateRequestEmbodied(serverLifespanSecs float64, tokenGenLatSecs common.RangeValue) {
-	g.EmbodiedImpact = requestEmbodied(g.ServerGpuEmbodiedImpact, serverLifespanSecs, tokenGenLatSecs)
+	g.EmbodiedImpact = requestEmbodied(g.ServerGPUEmbodiedImpact, serverLifespanSecs, tokenGenLatSecs)
 }
 
-// CalculateServerGpuEmbodied computes the GWP embodied impact of the server in kgCO2eq.
-func (g *GWP) CalculateServerGpuEmbodied(server *server.ServerInfra, gpuRequiredCount int) {
-	g.ServerGpuEmbodiedImpact = serverGpuEmbodied(
-		server.EmbodiedImpactGWP, float64(server.AvailableGpuCount), server.Gpu.EmbodiedImpactGWP, gpuRequiredCount)
+// CalculateServerGPUEmbodied computes the GWP embodied impact of the server in kgCO2eq.
+func (g *GWP) CalculateServerGPUEmbodied(server *gpuserver.GPUServer, gpuRequiredCount int) {
+	g.ServerGPUEmbodiedImpact = serverGPUEmbodied(
+		server.EmbodiedImpactGWP, float64(server.AvailableGPUCount), server.GPUModel.EmbodiedImpactGWP,
+		gpuRequiredCount)
 }
 
 // CalculateTotal computes the total GWP impact in kgCO2eq.

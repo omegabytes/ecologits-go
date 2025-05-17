@@ -1,4 +1,4 @@
-package server
+package gpuserver
 
 import (
 	"fmt"
@@ -28,16 +28,16 @@ func TestGenericGPU(t *testing.T) {
 }
 
 func TestGenericServerInfra(t *testing.T) {
-	t.Run("should return default ServerInfra values", func(t *testing.T) {
-		want := &ServerInfra{
-			AvailableGpuCount:  100,
+	t.Run("should return default GPUServer values", func(t *testing.T) {
+		want := &GPUServer{
+			AvailableGPUCount:  100,
 			PowerConsumptionKW: 1,
 			EmbodiedImpactADPe: 0.24,
 			EmbodiedImpactGWP:  3000,
 			EmbodiedImpactPE:   38000,
 			HardwareLifespan:   5 * 365 * 24 * 60 * 60,
-			DatacenterPue:      1.2,
-			Gpu: GPU{
+			DatacenterPUE:      1.2,
+			GPUModel: GPU{
 				EnergyAlpha:        8.91e-8,
 				EnergyBeta:         1.43e-6,
 				EnergyStdev:        5.19e-7,
@@ -50,7 +50,7 @@ func TestGenericServerInfra(t *testing.T) {
 				EmbodiedImpactPE:   1828,
 			},
 		}
-		got, err := GenericServerInfra()
+		got, err := GenericGPUServer()
 		assert.NoError(t, err)
 		assert.Equal(t, got, want)
 	})
@@ -58,13 +58,13 @@ func TestGenericServerInfra(t *testing.T) {
 
 func TestServerInfra_GenerationLatency(t *testing.T) {
 	type fields struct {
-		AvailableGpuCount  int
+		AvailableGPUCount  int
 		PowerConsumptionKW float64
 		EmbodiedImpactADPe float64
 		EmbodiedImpactGWP  float64
 		EmbodiedImpactPE   float64
 		HardwareLifespan   int64
-		Gpu                GPU
+		GPU                GPU
 	}
 	type args struct {
 		modelActiveParamCount float64
@@ -84,9 +84,9 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 			// gpuLatMax: 100 * (0.03032 + 1.96 * 7.00e-6) = 3.033372
 			name: "should calculate generation latency successfully",
 			fields: fields{
-				AvailableGpuCount:  4,
+				AvailableGPUCount:  4,
 				PowerConsumptionKW: 1.5,
-				Gpu: GPU{
+				GPU: GPU{
 					LatencyAlpha: 8.02e-4,
 					LatencyBeta:  2.23e-2,
 					LatencyStdev: 7.00e-6,
@@ -109,9 +109,9 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 			// gpuLatMax: 100 * (0.03032 + 1.96 * 7.00e-6) = 3.033372
 			name: "should return requestLatencySecs when calculated gpuLatencyInterval is < requestLatencySecs",
 			fields: fields{
-				AvailableGpuCount:  4,
+				AvailableGPUCount:  4,
 				PowerConsumptionKW: 1.5,
-				Gpu: GPU{
+				GPU: GPU{
 					LatencyAlpha: 8.02e-4,
 					LatencyBeta:  2.23e-2,
 					LatencyStdev: 7.00e-6,
@@ -131,7 +131,7 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 		{
 			name: "should return error when modelActiveParamCount is 0",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					LatencyAlpha: 8.02e-4,
 					LatencyBeta:  2.23e-2,
 					LatencyStdev: 7.00e-6,
@@ -148,7 +148,7 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 		{
 			name: "should return error when outputTokenCount is 0",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					LatencyAlpha: 8.02e-4,
 					LatencyBeta:  2.23e-2,
 					LatencyStdev: 7.00e-6,
@@ -165,7 +165,7 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 		{
 			name: "should return error when requestLatencySecs is 0",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					LatencyAlpha: 8.02e-4,
 					LatencyBeta:  2.23e-2,
 					LatencyStdev: 7.00e-6,
@@ -182,7 +182,7 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 		{
 			name: "should return error when GPU latency parameters are invalid",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					LatencyAlpha: 0,
 					LatencyBeta:  0,
 					LatencyStdev: 0,
@@ -197,10 +197,10 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 			expectedError: fmt.Errorf("GPU latency parameters must be greater than 0"),
 		},
 		{
-			name: "should return error when AvailableGpuCount is 0",
+			name: "should return error when AvailableGPUCount is 0",
 			fields: fields{
-				AvailableGpuCount: 0,
-				Gpu: GPU{
+				AvailableGPUCount: 0,
+				GPU: GPU{
 					LatencyAlpha: 8.02e-4,
 					LatencyBeta:  2.23e-2,
 					LatencyStdev: 7.00e-6,
@@ -212,14 +212,14 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 				requestLatencySecs:    1,
 			},
 			want:          common.RangeValue{},
-			expectedError: fmt.Errorf("AvailableGpuCount must be greater than 0"),
+			expectedError: fmt.Errorf("AvailableGPUCount must be greater than 0"),
 		},
 		{
 			name: "should return error when PowerConsumptionKW is 0",
 			fields: fields{
-				AvailableGpuCount:  4,
+				AvailableGPUCount:  4,
 				PowerConsumptionKW: 0,
-				Gpu: GPU{
+				GPU: GPU{
 					LatencyAlpha: 8.02e-4,
 					LatencyBeta:  2.23e-2,
 					LatencyStdev: 7.00e-6,
@@ -236,11 +236,11 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &ServerInfra{
-				AvailableGpuCount:  tt.fields.AvailableGpuCount,
+			s := &GPUServer{
+				AvailableGPUCount:  tt.fields.AvailableGPUCount,
 				PowerConsumptionKW: tt.fields.PowerConsumptionKW,
 				HardwareLifespan:   tt.fields.HardwareLifespan,
-				Gpu:                tt.fields.Gpu,
+				GPUModel:           tt.fields.GPU,
 			}
 			got, err := s.GenerationLatency(tt.args.modelActiveParamCount, tt.args.outputTokenCount,
 				tt.args.requestLatencySecs)
@@ -254,9 +254,9 @@ func TestServerInfra_GenerationLatency(t *testing.T) {
 	}
 }
 
-func TestServerInfra_GpuEnergy(t *testing.T) {
+func TestServerInfra_GPUEnergy(t *testing.T) {
 	type fields struct {
-		Gpu GPU
+		GPU GPU
 	}
 	type args struct {
 		modelActiveParamCount float64
@@ -275,7 +275,7 @@ func TestServerInfra_GpuEnergy(t *testing.T) {
 			// gpuEnergyMax: 100 * (0.000002321 + 1.96 * 5.19e-7) = 0.000333824
 			name: "should calculate GPU energy successfully",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					EnergyAlpha: 8.91e-8,
 					EnergyBeta:  1.43e-6,
 					EnergyStdev: 5.19e-7,
@@ -297,7 +297,7 @@ func TestServerInfra_GpuEnergy(t *testing.T) {
 			// gpuEnergyMax: 100 * (0.0000001034 + 1.96 * 5.19e-7) = 0.00011206399999999999
 			name: "should set min GPU to 0 when min calculation result is < 0",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					EnergyAlpha: 8.91e-8,
 					EnergyBeta:  1.43e-8,
 					EnergyStdev: 5.19e-7,
@@ -316,7 +316,7 @@ func TestServerInfra_GpuEnergy(t *testing.T) {
 		{
 			name: "should return error when modelActiveParamCount is 0",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					EnergyAlpha: 8.91e-8,
 					EnergyBeta:  1.43e-6,
 					EnergyStdev: 5.19e-7,
@@ -332,7 +332,7 @@ func TestServerInfra_GpuEnergy(t *testing.T) {
 		{
 			name: "should return error when outputTokenCount is 0",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					EnergyAlpha: 8.91e-8,
 					EnergyBeta:  1.43e-6,
 					EnergyStdev: 5.19e-7,
@@ -348,7 +348,7 @@ func TestServerInfra_GpuEnergy(t *testing.T) {
 		{
 			name: "should return error when GPU energy parameters are invalid",
 			fields: fields{
-				Gpu: GPU{
+				GPU: GPU{
 					EnergyAlpha: 0,
 					EnergyBeta:  0,
 					EnergyStdev: 0,
@@ -364,10 +364,10 @@ func TestServerInfra_GpuEnergy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &ServerInfra{
-				Gpu: tt.fields.Gpu,
+			s := &GPUServer{
+				GPUModel: tt.fields.GPU,
 			}
-			got, err := s.GpuEnergyKWH(tt.args.modelActiveParamCount, tt.args.outputTokenCount)
+			got, err := s.GPUEnergyKWH(tt.args.modelActiveParamCount, tt.args.outputTokenCount)
 			if tt.expectedError != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {
@@ -378,10 +378,10 @@ func TestServerInfra_GpuEnergy(t *testing.T) {
 	}
 }
 
-func TestServerInfra_GpuRequiredCount(t *testing.T) {
+func TestServerInfra_GPURequiredCount(t *testing.T) {
 	type fields struct {
-		AvailableGpuCount int
-		Gpu               GPU
+		AvailableGPUCount int
+		GPU               GPU
 	}
 	type args struct {
 		modelRequiredMemory float64
@@ -396,8 +396,8 @@ func TestServerInfra_GpuRequiredCount(t *testing.T) {
 		{
 			name: "should return number of GPUs required to load model when model memory and available GPU memory are provided",
 			fields: fields{
-				AvailableGpuCount: 4,
-				Gpu: GPU{
+				AvailableGPUCount: 4,
+				GPU: GPU{
 					AvailMemoryGB: 80,
 				},
 			},
@@ -410,8 +410,8 @@ func TestServerInfra_GpuRequiredCount(t *testing.T) {
 		{
 			name: "should return error when model memory is 0",
 			fields: fields{
-				AvailableGpuCount: 4,
-				Gpu: GPU{
+				AvailableGPUCount: 4,
+				GPU: GPU{
 					AvailMemoryGB: 80,
 				},
 			},
@@ -424,8 +424,8 @@ func TestServerInfra_GpuRequiredCount(t *testing.T) {
 		{
 			name: "should return error when server gpu available memory is 0",
 			fields: fields{
-				AvailableGpuCount: 4,
-				Gpu: GPU{
+				AvailableGPUCount: 4,
+				GPU: GPU{
 					AvailMemoryGB: 0,
 				},
 			},
@@ -438,8 +438,8 @@ func TestServerInfra_GpuRequiredCount(t *testing.T) {
 		{
 			name: "should round up the returned gpu count",
 			fields: fields{
-				AvailableGpuCount: 4,
-				Gpu: GPU{
+				AvailableGPUCount: 4,
+				GPU: GPU{
 					AvailMemoryGB: 30,
 				},
 			},
@@ -452,11 +452,11 @@ func TestServerInfra_GpuRequiredCount(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &ServerInfra{
-				AvailableGpuCount: tt.fields.AvailableGpuCount,
-				Gpu:               tt.fields.Gpu,
+			s := &GPUServer{
+				AvailableGPUCount: tt.fields.AvailableGPUCount,
+				GPUModel:          tt.fields.GPU,
 			}
-			got, err := s.GpuRequiredCount(tt.args.modelRequiredMemory)
+			got, err := s.GPURequiredCount(tt.args.modelRequiredMemory)
 			if tt.expectedError != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {
@@ -469,9 +469,9 @@ func TestServerInfra_GpuRequiredCount(t *testing.T) {
 
 func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 	type fields struct {
-		AvailableGpuCount  int
+		AvailableGPUCount  int
 		PowerConsumptionKW float64
-		Gpu                GPU
+		GPU                GPU
 	}
 	type args struct {
 		tokenGenLatencySeconds float64
@@ -487,7 +487,7 @@ func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 		{
 			name: "should calculate energy baseline successfully",
 			fields: fields{
-				AvailableGpuCount:  4,
+				AvailableGPUCount:  4,
 				PowerConsumptionKW: 1.5,
 			},
 			args: args{
@@ -500,7 +500,7 @@ func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 		{
 			name: "should return error when tokenGenLatencySeconds is 0",
 			fields: fields{
-				AvailableGpuCount:  4,
+				AvailableGPUCount:  4,
 				PowerConsumptionKW: 1.5,
 			},
 			args: args{
@@ -513,7 +513,7 @@ func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 		{
 			name: "should return error when gpuRequiredCount is 0",
 			fields: fields{
-				AvailableGpuCount:  4,
+				AvailableGPUCount:  4,
 				PowerConsumptionKW: 1.5,
 			},
 			args: args{
@@ -526,7 +526,7 @@ func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 		{
 			name: "should return error when gpuRequiredCount exceeds available GPUs",
 			fields: fields{
-				AvailableGpuCount:  4,
+				AvailableGPUCount:  4,
 				PowerConsumptionKW: 1.5,
 			},
 			args: args{
@@ -539,7 +539,7 @@ func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 		{
 			name: "should return error when PowerConsumptionKW is 0",
 			fields: fields{
-				AvailableGpuCount:  4,
+				AvailableGPUCount:  4,
 				PowerConsumptionKW: 0,
 			},
 			args: args{
@@ -552,10 +552,10 @@ func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &ServerInfra{
-				AvailableGpuCount:  tt.fields.AvailableGpuCount,
+			s := &GPUServer{
+				AvailableGPUCount:  tt.fields.AvailableGPUCount,
 				PowerConsumptionKW: tt.fields.PowerConsumptionKW,
-				Gpu:                tt.fields.Gpu,
+				GPUModel:           tt.fields.GPU,
 			}
 			got, err := s.ServerEnergyBaseline(tt.args.tokenGenLatencySeconds, tt.args.gpuRequiredCount)
 			if tt.expectedError != nil {
@@ -570,13 +570,13 @@ func TestServerInfra_ServerEnergyBaseline(t *testing.T) {
 
 func TestServerInfra_RequestEnergy(t *testing.T) {
 	type fields struct {
-		AvailableGpuCount  int
+		AvailableGPUCount  int
 		PowerConsumptionKW float64
 		EmbodiedImpactADPe float64
 		EmbodiedImpactGWP  float64
 		EmbodiedImpactPE   float64
 		HardwareLifespan   int64
-		Gpu                GPU
+		GPU                GPU
 		DatacenterPue      float64
 	}
 	type args struct {
@@ -596,7 +596,7 @@ func TestServerInfra_RequestEnergy(t *testing.T) {
 			// max: 1.2 * (1.5 + 2 * 0.2) = 2.28
 			name: "should calculate request energy successfully",
 			fields: fields{
-				AvailableGpuCount: 4,
+				AvailableGPUCount: 4,
 				DatacenterPue:     1.2,
 			},
 			args: args{
@@ -626,7 +626,7 @@ func TestServerInfra_RequestEnergy(t *testing.T) {
 		{
 			name: "should return error when gpuRequiredCount is 0",
 			fields: fields{
-				AvailableGpuCount: 4,
+				AvailableGPUCount: 4,
 				DatacenterPue:     1.2,
 			},
 			args: args{
@@ -640,7 +640,7 @@ func TestServerInfra_RequestEnergy(t *testing.T) {
 		{
 			name: "should return error when gpuRequiredCount exceeds available GPUs",
 			fields: fields{
-				AvailableGpuCount: 4,
+				AvailableGPUCount: 4,
 				DatacenterPue:     1.2,
 			},
 			args: args{
@@ -654,7 +654,7 @@ func TestServerInfra_RequestEnergy(t *testing.T) {
 		{
 			name: "should return error when gpuEnergyKWH.Min is negative",
 			fields: fields{
-				AvailableGpuCount: 4,
+				AvailableGPUCount: 4,
 				DatacenterPue:     1.2,
 			},
 			args: args{
@@ -668,15 +668,15 @@ func TestServerInfra_RequestEnergy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &ServerInfra{
-				AvailableGpuCount:  tt.fields.AvailableGpuCount,
+			s := &GPUServer{
+				AvailableGPUCount:  tt.fields.AvailableGPUCount,
 				PowerConsumptionKW: tt.fields.PowerConsumptionKW,
 				EmbodiedImpactADPe: tt.fields.EmbodiedImpactADPe,
 				EmbodiedImpactGWP:  tt.fields.EmbodiedImpactGWP,
 				EmbodiedImpactPE:   tt.fields.EmbodiedImpactPE,
 				HardwareLifespan:   tt.fields.HardwareLifespan,
-				Gpu:                tt.fields.Gpu,
-				DatacenterPue:      tt.fields.DatacenterPue,
+				GPUModel:           tt.fields.GPU,
+				DatacenterPUE:      tt.fields.DatacenterPue,
 			}
 			got, err := s.RequestEnergy(tt.args.serverEnergyKWH, tt.args.gpuRequiredCount, tt.args.gpuEnergyKWH)
 			if tt.expectedError != nil {

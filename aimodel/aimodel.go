@@ -137,7 +137,7 @@ func (a *AIModel) Warnings() []Warning {
 	return a.warnings
 }
 
-// ModelRequiredMemory returns the required memory to load the model on a GPU.
+// ModelRequiredMemory returns the required memory to load the model on a GPUModel.
 func (a *AIModel) ModelRequiredMemory() float64 {
 	return 1.2 * a.architecture.Parameters.Total.Max * a.quantizationBits / 8
 }

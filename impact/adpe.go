@@ -2,7 +2,7 @@ package impact
 
 import (
 	"github.com/omegabytes/ecologits-go/common"
-	"github.com/omegabytes/ecologits-go/server"
+	"github.com/omegabytes/ecologits-go/gpuserver"
 )
 
 var _ ImpactIface = &ADPe{}
@@ -11,7 +11,7 @@ var _ ImpactIface = &ADPe{}
 type ADPe struct {
 	EmbodiedImpact          common.RangeValue
 	RequestImpact           common.RangeValue
-	ServerGpuEmbodiedImpact float64
+	ServerGPUEmbodiedImpact float64
 	TotalImpact             common.RangeValue
 }
 
@@ -23,13 +23,14 @@ func (a *ADPe) CalculateRequestUsage(requestEnergyKWH common.RangeValue, elecImp
 
 // CalculateRequestEmbodied computes the ADPe embodied impact of the request in kgSbeq.
 func (a *ADPe) CalculateRequestEmbodied(serverLifespanSecs float64, tokenGenLatSec common.RangeValue) {
-	a.EmbodiedImpact = requestEmbodied(a.ServerGpuEmbodiedImpact, serverLifespanSecs, tokenGenLatSec)
+	a.EmbodiedImpact = requestEmbodied(a.ServerGPUEmbodiedImpact, serverLifespanSecs, tokenGenLatSec)
 }
 
-// CalculateServerGpuEmbodied computes the ADPe embodied impact of the server in kgSbeq.
-func (a *ADPe) CalculateServerGpuEmbodied(server *server.ServerInfra, gpuRequiredCount int) {
-	a.ServerGpuEmbodiedImpact = serverGpuEmbodied(
-		server.EmbodiedImpactADPe, float64(server.AvailableGpuCount), server.Gpu.EmbodiedImpactADPe, gpuRequiredCount)
+// CalculateServerGPUEmbodied computes the ADPe embodied impact of the server in kgSbeq.
+func (a *ADPe) CalculateServerGPUEmbodied(server *gpuserver.GPUServer, gpuRequiredCount int) {
+	a.ServerGPUEmbodiedImpact = serverGPUEmbodied(
+		server.EmbodiedImpactADPe, float64(server.AvailableGPUCount), server.GPUModel.EmbodiedImpactADPe,
+		gpuRequiredCount)
 }
 
 // CalculateTotal computes the total ADPe impact in kgSbeq.
